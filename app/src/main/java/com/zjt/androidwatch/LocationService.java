@@ -41,7 +41,7 @@ public class LocationService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         zzz("开启定位服务");
         cachetime = (int) UtilSP.get(this, "cachetime", 3000);
-        initmap();
+//        initmap();
 
         return super.onStartCommand(intent, flags, startId);
     }
