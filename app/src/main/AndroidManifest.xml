@@ -106,6 +106,9 @@
             android:enabled="true"
             android:exported="true">
         </service>
+
+        <activity android:name=".HeartActivity">
+        </activity>
     </application>
 
 </manifest>

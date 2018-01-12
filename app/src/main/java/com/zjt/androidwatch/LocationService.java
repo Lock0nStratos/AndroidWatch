@@ -4,6 +4,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.View;
 
 import com.baidu.location.BDLocation;
 import com.baidu.location.BDLocationListener;
@@ -12,10 +13,17 @@ import com.baidu.location.LocationClientOption;
 import com.baidu.location.Poi;
 import com.google.gson.Gson;
 import com.limp.utils.UtilSP;
+import com.skybeacon.sdk.RangingBeaconsListener;
+import com.skybeacon.sdk.ScanServiceStateCallback;
+import com.skybeacon.sdk.locate.SKYBeacon;
+import com.skybeacon.sdk.locate.SKYBeaconManager;
+import com.skybeacon.sdk.locate.SKYRegion;
 import com.zjt.androidwatch.bean.LocationBean;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class LocationService extends Service {
 
@@ -28,6 +36,7 @@ public class LocationService extends Service {
     public LocationClient mLocationClient =null;
     public BDLocationListener myListener=new MyLocationListener();
     private int cachetime;
+    Timer t=new Timer();
     public LocationService() {
     }
 
@@ -42,8 +51,99 @@ public class LocationService extends Service {
         zzz("开启定位服务");
         cachetime = (int) UtilSP.get(this, "cachetime", 3000);
         initmap();
-
+        initbluetooth();
+        initupload();
         return super.onStartCommand(intent, flags, startId);
+    }
+
+    private void initupload() {
+        t.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                String s=getjsonParams();
+            }
+        },3000,(int)UtilSP.get(this,"uploadtime",3000));
+    }
+
+    /**
+     * synchronized表示同步，当两个并发线程访问时，同一时刻只能有一个线程得到执行，
+     * 另一个线程守阻塞，必须等待当前线程执行完这个代码块以后才能执行该代码块。
+     * 每个对象只有一个锁（lock）与之相关联，谁拿到这个锁谁就可以运行它所控制的那段代码。
+     * @return
+     */
+    private synchronized String getjsonParams() {
+        LocationBean userInfo=new LocationBean();
+        //TODO 修改注释
+        userInfo.setDevice_id(HeartActivity.deviceid);
+        userInfo.setPerson_id(HeartActivity.deviceid);
+
+        userInfo.setDevice_type(1);
+        //TODO what does tagtype mean?
+        LocationBean.TagInfoEntity tagInfoEntity=new LocationBean.TagInfoEntity();
+        if (list.size()==0){
+            if (HeartActivity.longitude==0){
+                userInfo.setTag_type(3);
+            }else {
+                userInfo.setTag_type(2);
+                LocationBean.TagInfoEntity.GpsEntity gps=new LocationBean.TagInfoEntity.GpsEntity();
+                gps.setX(HeartActivity.longitude+"");
+                gps.setY(HeartActivity.latitude+"");
+
+                HeartActivity.context.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        HeartActivity.img_gps.setVisibility(View.VISIBLE);
+                        HeartActivity.img_bl.setVisibility(View.GONE);
+                    }
+                });
+                tagInfoEntity.setGps(gps);
+            }
+        }else {
+            userInfo.setTag_type(1);
+            int a=0;
+        }
+
+        return g.toJson(userInfo);
+    }
+
+    private void initbluetooth() {
+        SKYBeaconManager.getInstance().startScanService(new ScanServiceStateCallback() {
+            @Override
+            public void onServiceConnected() {
+                SKYBeaconManager.getInstance().startRangingBeacons(null);
+            }
+
+            @Override
+            public void onServiceDisconnected() {
+
+            }
+        });
+
+        SKYBeaconManager.getInstance().setRangingBeaconsListener(new RangingBeaconsListener() {
+            @Override
+            public void onRangedBeacons(SKYRegion skyRegion, List beaconList) {
+                for (int i=0;i<beaconList.size();i++){
+                    SKYBeacon sky= (SKYBeacon) beaconList.get(i);
+                    LocationBean.TagInfoEntity.BluetoothsEntity bluetooth=new LocationBean.TagInfoEntity.BluetoothsEntity();
+                    bluetooth.setId(sky.getMinor()+"");
+                    bluetooth.setEnergy(sky.getRssi()+"");
+
+                    bluetooth.setManufacturer(2);
+                    bluetooth.setTime(System.currentTimeMillis());
+                    list.add(bluetooth);
+                }
+            }
+
+            @Override
+            public void onRangedBeaconsMultiIDs(SKYRegion skyRegion, List list) {
+
+            }
+
+            @Override
+            public void onRangedNearbyBeacons(SKYRegion skyRegion, List list) {
+
+            }
+        });
     }
 
     private void initmap() {
