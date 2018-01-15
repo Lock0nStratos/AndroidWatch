@@ -10,6 +10,11 @@ public class HandBean {
      * data:
      */
 
+    public HandBean(String time, String data) {
+        this.time = time;
+        this.data = data;
+    }
+
     private String time;
     private String data;
 

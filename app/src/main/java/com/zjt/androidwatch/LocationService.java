@@ -12,6 +12,7 @@ import com.baidu.location.LocationClient;
 import com.baidu.location.LocationClientOption;
 import com.baidu.location.Poi;
 import com.google.gson.Gson;
+import com.limp.utils.L;
 import com.limp.utils.UtilSP;
 import com.skybeacon.sdk.RangingBeaconsListener;
 import com.skybeacon.sdk.ScanServiceStateCallback;
@@ -21,6 +22,7 @@ import com.skybeacon.sdk.locate.SKYRegion;
 import com.zjt.androidwatch.bean.LocationBean;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -61,6 +63,13 @@ public class LocationService extends Service {
             @Override
             public void run() {
                 String s=getjsonParams();
+                //TODO MQTT上传模块
+                MQTTUtil.getincetense().uploadheartrate(HeartActivity.heart+"");
+                if (!s.equals("")){
+
+                }
+
+
             }
         },3000,(int)UtilSP.get(this,"uploadtime",3000));
     }
@@ -80,6 +89,9 @@ public class LocationService extends Service {
         userInfo.setDevice_type(1);
         //TODO what does tagtype mean?
         LocationBean.TagInfoEntity tagInfoEntity=new LocationBean.TagInfoEntity();
+        /**
+         * 蓝牙列表为空时，使用gps(网络)定位，更改界面图标（gps显示，蓝牙关闭）
+         */
         if (list.size()==0){
             if (HeartActivity.longitude==0){
                 userInfo.setTag_type(3);
@@ -99,10 +111,42 @@ public class LocationService extends Service {
                 tagInfoEntity.setGps(gps);
             }
         }else {
+            /**
+             * 蓝牙列表不为空时，使用蓝牙定位，更改界面图标（gps关闭，蓝牙显示）
+             */
             userInfo.setTag_type(1);
             int a=0;
+            for (Iterator<LocationBean.TagInfoEntity.BluetoothsEntity>it=list.iterator();it.hasNext();){
+                LocationBean.TagInfoEntity.BluetoothsEntity bluetooth=it.next();
+                /**
+                 * 系统时间减去获取蓝牙数据的时间大于缓存时间,超时
+                 */
+                if (System.currentTimeMillis()-bluetooth.getTime()>cachetime){
+                    it.remove();
+                    a++;
+                }
+            }
+            L.zzz("list="+list.size()+",超时个数为:"+a);
+            tagInfoEntity.setBluetooths(list);
+            HeartActivity.longitude=0;
+            HeartActivity.latitude=0;
+            HeartActivity.context.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    HeartActivity.img_gps.setVisibility(View.GONE);
+                    HeartActivity.img_bl.setVisibility(View.VISIBLE);
+                }
+            });
         }
-
+        LocationBean.LocationInfoEntity locationInfoEntity=new LocationBean.LocationInfoEntity();
+        locationInfoEntity.setX("");
+        locationInfoEntity.setY("");
+        locationInfoEntity.setZ("");
+        userInfo.setLocation_info(locationInfoEntity);
+        userInfo.setTag_info(tagInfoEntity);
+        LocationBean.DeviceInfoEntity deviceInfoEntity=new LocationBean.DeviceInfoEntity();
+        userInfo.setDevice_id(g.toJson(deviceInfoEntity));
+        userInfo.setHeartrate(HeartActivity.heart+"");
         return g.toJson(userInfo);
     }
 
