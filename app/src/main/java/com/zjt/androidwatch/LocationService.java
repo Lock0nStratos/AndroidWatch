@@ -27,6 +27,10 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 public class LocationService extends Service {
 
     public static String x="";
@@ -66,10 +70,19 @@ public class LocationService extends Service {
                 //TODO MQTT上传模块
                 MQTTUtil.getincetense().uploadheartrate(HeartActivity.heart+"");
                 if (!s.equals("")){
+                    L.zzz("位置上传：jsonParams="+s);
+                    RetrofitUtil.getStringwebService().loadGIS(s).enqueue(new Callback<String>() {
+                        @Override
+                        public void onResponse(Call<String> call, Response<String> response) {
+                            L.zzz("上传成功"+response.body());
+                        }
 
+                        @Override
+                        public void onFailure(Call<String> call, Throwable t) {
+                            L.zzz("上传失败"+t.toString());
+                        }
+                    });
                 }
-
-
             }
         },3000,(int)UtilSP.get(this,"uploadtime",3000));
     }
